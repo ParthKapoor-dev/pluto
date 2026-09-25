@@ -13,6 +13,7 @@ const (
 
 type Inference interface {
 	Call(ctx context.Context, model string, prompt string) (string, error)
+	Stream(ctx context.Context, model string, prompt string) error
 }
 
 func NewInferenceClient(ctx context.Context, provider Provider) (Inference, error) {

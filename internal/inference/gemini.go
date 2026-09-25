@@ -3,6 +3,7 @@ package inference
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/parthkapoor-dev/pluto/pkg"
 	"google.golang.org/genai"
@@ -58,5 +59,39 @@ func (gc *geminiClient) Call(ctx context.Context, model string, userPrompt strin
 	gc.history = append(gc.history, genai.NewContentFromText(reply, genai.RoleModel))
 
 	return reply, nil
+
+}
+
+func (gc *geminiClient) Stream(ctx context.Context, model string, userPrompt string) error {
+
+	gc.history = append(gc.history, genai.NewContentFromText(userPrompt, genai.RoleUser))
+
+	var reply []string
+
+	fmt.Print("AGENT: ")
+
+	// Inference call
+	for result, err := range gc.client.Models.GenerateContentStream(
+		ctx,
+		model,
+		gc.history,
+		&genai.GenerateContentConfig{
+			SystemInstruction: &genai.Content{Parts: []*genai.Part{
+				{Text: "If you want to list files in current directory, respond with <TOOL-CALL>LIST_FILES<TOOL-CALL>"}}},
+		},
+	) {
+		if err != nil {
+			return fmt.Errorf("at generating result: %w", err)
+		}
+
+		fmt.Print(result.Text(), " ")
+		reply = append(reply, result.Text())
+	}
+
+	gc.history = append(gc.history, genai.NewContentFromText(strings.Join(reply, " "), genai.RoleModel))
+
+	fmt.Println()
+
+	return nil
 
 }

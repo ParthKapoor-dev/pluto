@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/parthkapoor-dev/pluto/internal/inference"
 	"github.com/parthkapoor-dev/pluto/pkg"
@@ -55,7 +56,27 @@ func (c *Cli) Run(args []string) error {
 			return err
 		}
 
-		fmt.Println("AGENT RESPONSE: ", response)
+		if strings.TrimSpace(response) == "<TOOL-CALL>LIST_FILES<TOOL-CALL>" {
+
+			files, err := os.ReadDir(".")
+			if err != nil {
+				return err
+			}
+
+			var fileNames []string
+
+			for _, file := range files {
+				fileNames = append(fileNames, file.Name())
+			}
+
+			response, err = infClient.Call(ctx, "gemini-2.5-flash", strings.Join(fileNames, ", "))
+			if err != nil {
+				return err
+			}
+
+		}
+
+		fmt.Println("AGENT: ", response)
 
 	}
 

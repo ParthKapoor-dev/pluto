@@ -44,7 +44,9 @@ func (gc *geminiClient) Call(ctx context.Context, model string, userPrompt strin
 		ctx,
 		model,
 		gc.history,
-		nil,
+		&genai.GenerateContentConfig{
+			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: "If you want to list files in current directory, respond with <TOOL-CALL>LIST_FILES<TOOL-CALL>"}}},
+		},
 	)
 
 	if err != nil {

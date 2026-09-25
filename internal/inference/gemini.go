@@ -4,17 +4,24 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/parthkapoor-dev/pluto/pkg"
 	"google.golang.org/genai"
 )
 
 type geminiClient struct {
-	client *genai.Client
+	client  *genai.Client
+	history []*genai.Content
 }
 
-func newGeminiClient(ctx context.Context, apiKey string) (*geminiClient, error) {
+func newGeminiClient(ctx context.Context) (*geminiClient, error) {
+
+	GEMINI_API_KEY, err := pkg.GetEnv("GEMINI_API_KEY")
+	if err != nil {
+		return nil, err
+	}
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
+		APIKey:  GEMINI_API_KEY,
 		Backend: genai.BackendGeminiAPI,
 	})
 
@@ -22,18 +29,21 @@ func newGeminiClient(ctx context.Context, apiKey string) (*geminiClient, error) 
 		return nil, fmt.Errorf("initiating gemini client: %w", err)
 	}
 
-	return &geminiClient{client}, nil
+	history := make([]*genai.Content, 0)
+
+	return &geminiClient{client, history}, nil
 
 }
 
 func (gc *geminiClient) Call(ctx context.Context, model string, userPrompt string) (string, error) {
 
+	gc.history = append(gc.history, genai.NewContentFromText(userPrompt, genai.RoleUser))
+
 	// Inference call
 	result, err := gc.client.Models.GenerateContent(
 		ctx,
-		// "gemini-2.5-flash",
 		model,
-		genai.Text(userPrompt),
+		gc.history,
 		nil,
 	)
 
@@ -41,11 +51,10 @@ func (gc *geminiClient) Call(ctx context.Context, model string, userPrompt strin
 		return "", fmt.Errorf("at generating result: %w", err)
 	}
 
-	// response builder
-	if len(result.Candidates) > 0 && len(result.Candidates[0].Content.Parts) > 0 {
-		return result.Candidates[0].Content.Parts[0].Text, nil
-	}
+	reply := result.Text()
 
-	return "", fmt.Errorf("No text returned from the model.")
+	gc.history = append(gc.history, genai.NewContentFromText(reply, genai.RoleModel))
+
+	return reply, nil
 
 }

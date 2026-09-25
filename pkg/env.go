@@ -9,20 +9,18 @@ import (
 
 const DEFAULT_ENV = ".env.local"
 
-type Env struct {
-}
-
-func NewEnv() (*Env, error) {
+func LoadEnv() error {
 
 	err := godotenv.Load(DEFAULT_ENV)
+
 	if err != nil {
-		return nil, fmt.Errorf("loading the env: %w", err)
+		return fmt.Errorf("loading the env: %w", err)
 	}
 
-	return &Env{}, nil
+	return nil
 }
 
-func (e *Env) Get(key string) (string, error) {
+func GetEnv(key string) (string, error) {
 	value := os.Getenv(key)
 	if value == "" {
 		return "", fmt.Errorf("no variable variable with key %s exists", key)

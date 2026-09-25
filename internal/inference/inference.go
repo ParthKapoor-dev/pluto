@@ -15,10 +15,10 @@ type Inference interface {
 	Call(ctx context.Context, model string, prompt string) (string, error)
 }
 
-func NewInferenceClient(ctx context.Context, provider Provider, apiKey string) (Inference, error) {
+func NewInferenceClient(ctx context.Context, provider Provider) (Inference, error) {
 
 	if provider == ProviderGemini {
-		return newGeminiClient(ctx, apiKey)
+		return newGeminiClient(ctx)
 	}
 
 	return nil, fmt.Errorf("invalid provider name")

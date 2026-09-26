@@ -3,6 +3,7 @@ package inference
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/parthkapoor-dev/pluto/pkg"
@@ -64,34 +65,70 @@ func (gc *geminiClient) Call(ctx context.Context, model string, userPrompt strin
 
 func (gc *geminiClient) Stream(ctx context.Context, model string, userPrompt string) error {
 
-	gc.history = append(gc.history, genai.NewContentFromText(userPrompt, genai.RoleUser))
+	prompt := userPrompt
 
-	var reply []string
+	for {
 
-	fmt.Print("AGENT: ")
+		gc.history = append(gc.history, genai.NewContentFromText(prompt, genai.RoleUser))
 
-	// Inference call
-	for result, err := range gc.client.Models.GenerateContentStream(
-		ctx,
-		model,
-		gc.history,
-		&genai.GenerateContentConfig{
-			SystemInstruction: &genai.Content{Parts: []*genai.Part{
-				{Text: "If you want to list files in current directory, respond with <TOOL-CALL>LIST_FILES<TOOL-CALL>"}}},
-		},
-	) {
-		if err != nil {
-			return fmt.Errorf("at generating result: %w", err)
+		var reply []string
+
+		fmt.Print("AGENT: ")
+
+		// Inference call
+		for result, err := range gc.client.Models.GenerateContentStream(
+			ctx,
+			model,
+			gc.history,
+			&genai.GenerateContentConfig{
+				SystemInstruction: &genai.Content{Parts: []*genai.Part{
+					{Text: "If you want to list files in current directory, respond with <TOOL-CALL>LIST_FILES</TOOL-CALL>"}}},
+			},
+		) {
+			if err != nil {
+				return fmt.Errorf("at generating result: %w", err)
+			}
+
+			fmt.Print(result.Text(), " ")
+			reply = append(reply, result.Text())
 		}
 
-		fmt.Print(result.Text(), " ")
-		reply = append(reply, result.Text())
+		gc.history = append(gc.history, genai.NewContentFromText(strings.Join(reply, " "), genai.RoleModel))
+
+		fmt.Println()
+
+		var err error
+		prompt, err = gc.toolCall()
+		if err != nil {
+			return err
+		}
+
+		if prompt == "" {
+			return nil
+		}
+
 	}
 
-	gc.history = append(gc.history, genai.NewContentFromText(strings.Join(reply, " "), genai.RoleModel))
+}
 
-	fmt.Println()
+func (gc *geminiClient) toolCall() (string, error) {
 
-	return nil
+	response := gc.history[len(gc.history)-1].Parts[0].Text
 
+	if strings.TrimSpace(response) != "<TOOL-CALL>LIST_FILES</TOOL-CALL>" {
+		return "", nil
+	}
+
+	files, err := os.ReadDir(".")
+	if err != nil {
+		return "", err
+	}
+
+	var fileNames []string
+
+	for _, file := range files {
+		fileNames = append(fileNames, file.Name())
+	}
+
+	return strings.Join(fileNames, " "), nil
 }
